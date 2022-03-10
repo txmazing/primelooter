@@ -9,17 +9,20 @@ Python bot which automatically claims ~~twitch~~ amazon prime gaming loot :D
 ## Usage
 
 ### 1. ⚙️ General Setup
+<details>
+  <summary><b>Local 📌</b></summary>
 
-#### Local 📌
+  1.  Install python3
+  2.  Install package requirements: `pip install -r requirements.txt`
+  3.  Install playwright: `python -m playwright install`
+  4.  Create your own cookies.txt and publishers.txt (see example files)`
+</details>
 
-1.  Install python3
-2.  Install package requirements: `$> pip install -r requirements.txt`
-3.  Install playwright: `$> python -m playwright install`
-4.  Create your own cookies.txt and publishers.txt (see example files)
+<details>
+  <summary><b>Docker 🐳</b></summary>
 
-#### Docker 🐳
-
-If you want to use the provided docker image (only linux/amd64 plattform for now) you must mount the **config.txt** and **providers.txt** into the **/app** path. (example compose file is provided)
+  If you want to use the provided docker image (only linux/amd64 plattform for now) you must mount the **config.txt** and **providers.txt** into the **app** path. (example compose file is provided)
+</details>
 
 ### 2. 🍪 Generate a cookie.txt (Firefox)
 
@@ -37,22 +40,31 @@ Create a publishers.txt like the example file. Each line represents the publishe
 ### 4. 🏃 Run
 
 The script offers multiple arguments:
+```bash
+-p PUBLISHERS, --publishers PUBLISHERS
+                      Path to publishers.txt file
 
-- -c | --cookie: Path to cookies.txt file
-- -p | --publishers: Path to publishers.txt file
-- -l | --loop: loops the script with a cooldown of 24h
-- --dump: print the html-index page (used for issues/website changes)
-- -d | --debug: Print debug messages (used for issues)
-- -nh | --no-headless: starts the script with a visible browser (mainly for debugging)
+-c COOKIES, --cookies COOKIES
+                      Path to cookies.txt file
 
+-l, --loop            Shall the script loop itself? (Cooldown 24h)
+--dump                Dump html to output
+-d, --debug           Print Log at debug level
+-nh, --no-headless    Shall the script not use headless mode?
+```
 If you use docker simply start the container.
 
-If you want to use cron.d instead of letting the script wait 24h you must create a new file under `/etc/cron.d`. Example:
+If you want to use cron.d instead of letting the script wait 24h you must create a new file under `/etc/cron.d`.
 
-`0 0 * * * root : Primelooter ; /usr/bin/python3 /path/to/primelooter.py --cookie /path/to/cookie.txt --publishers /path/to/publishers.txt`
+Example:
+```
+0 0 * * * root : Primelooter ; /usr/bin/python3 /path/to/primelooter.py --cookie /path/to/cookie.txt --publishers /path/to/publishers.txt
+```
 
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/V7V44JB4A)
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for more information on contributing to this project!
 
 ## Disclaimer
 
