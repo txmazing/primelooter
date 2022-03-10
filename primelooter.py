@@ -7,7 +7,14 @@ import traceback
 import json
 import typing
 
-from playwright.sync_api import sync_playwright, Browser, BrowserContext, Cookie, Error, Page
+from playwright.sync_api import (
+    sync_playwright,
+    Browser,
+    BrowserContext,
+    Cookie,
+    Error,
+    Page,
+)
 
 handler = logging.StreamHandler(sys.stdout)
 
@@ -15,7 +22,7 @@ logging.basicConfig(
     level=logging.INFO,
     # format="%(asctime)s [%(levelname)s] %(msg)s",
     format="{asctime} [{levelname}] {message}",
-    style='{',
+    style="{",
     datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[logging.FileHandler("primelooter.log"), handler],
 )
@@ -38,9 +45,13 @@ class PrimeLooter:
         self.playwright = sync_playwright()
 
         if self.use_chrome:
-            self.browser: Browser = self.playwright.start().chromium.launch(headless=self.headless)
+            self.browser: Browser = self.playwright.start().chromium.launch(
+                headless=self.headless
+            )
         else:
-            self.browser: Browser = self.playwright.start().firefox.launch(headless=self.headless)
+            self.browser: Browser = self.playwright.start().firefox.launch(
+                headless=self.headless
+            )
 
         self.context: BrowserContext = self.browser.new_context()
         self.context.add_cookies(self.cookies)
@@ -54,10 +65,16 @@ class PrimeLooter:
         self.playwright.__exit__()
 
     @staticmethod
-    def code_to_file(game: str, code: str, instructions: str, seperator_string: str = "") -> None:
-        seperator_string = seperator_string or "========================\n========================"
+    def code_to_file(
+        game: str, code: str, instructions: str, seperator_string: str = ""
+    ) -> None:
+        seperator_string = (
+            seperator_string or "========================\n========================"
+        )
         with open("./game_codes.txt", "a") as f:
-            f.write(f"{game}: {code}\n\n{instructions.replace('/n',' ')}\n{seperator_string}\n")
+            f.write(
+                f"{game}: {code}\n\n{instructions.replace('/n',' ')}\n{seperator_string}\n"
+            )
 
     @staticmethod
     def exists(tab: Page, selector: str) -> bool:
@@ -74,7 +91,9 @@ class PrimeLooter:
             self.page.goto("https://gaming.amazon.com/home")
             response = response_info.value.json()["data"]["currentUser"]
             if not response["isSignedIn"]:
-                raise AuthException("Authentication: Not signed in. (Please recreate the cookie.txt file)")
+                raise AuthException(
+                    "Authentication: Not signed in. (Please recreate the cookie.txt file)"
+                )
             elif not response["isAmazonPrime"]:
                 raise AuthException(
                     "Authentication: Not a valid Amazon Prime account. "
@@ -83,7 +102,8 @@ class PrimeLooter:
             elif not response["isTwitchPrime"]:
                 raise AuthException(
                     "Authentication: Not a valid Twitch Prime account. "
-                    "(Loot can only be redeemed with an Amazon Prime subscription and a connected Twitch Prime account)"
+                    "(Loot can only be redeemed with an Amazon Prime "
+                    "subscription and a connected Twitch Prime account)"
                 )
 
     def get_offers(self) -> typing.List:
@@ -105,7 +125,9 @@ class PrimeLooter:
             return False
         if offer["self"]:
             return offer["self"]["eligibility"]["canClaim"]
-        raise Exception(f"Could not check offer eligibility status\n{json.dumps(offer, indent=4)}")
+        raise Exception(
+            f"Could not check offer eligibility status\n{json.dumps(offer, indent=4)}"
+        )
 
     @staticmethod
     def check_claim_status(offer: dict) -> bool:
@@ -117,7 +139,9 @@ class PrimeLooter:
             return False
         if offer["self"]:
             return offer["self"]["eligibility"]["isClaimed"]
-        raise Exception(f"Could not check offer eligibility status\n{json.dumps(offer, indent=4)}")
+        raise Exception(
+            f"Could not check offer eligibility status\n{json.dumps(offer, indent=4)}"
+        )
 
     def claim_external(self, url, publisher):
         tab = self.context.new_page()
@@ -128,20 +152,32 @@ class PrimeLooter:
             ) as response_info:
                 log.debug("get game title")
                 tab.goto(url)
-                game_name = response_info.value.json()["data"]["journey"]["assets"]["title"]
+                game_name = response_info.value.json()["data"]["journey"]["assets"][
+                    "title"
+                ]
 
             log.debug(f"Try to claim {game_name} from {publisher}")
             tab.wait_for_selector("div[data-a-target=loot-card-available]")
 
-            loot_cards = tab.query_selector_all("div[data-a-target=loot-card-available]")
+            loot_cards = tab.query_selector_all(
+                "div[data-a-target=loot-card-available]"
+            )
 
             for loot_card in loot_cards:
-                loot_name = loot_card.query_selector("h3[data-a-target=LootCardSubtitle]").text_content()
-                log.debug(f"Try to claim loot {loot_name} from {game_name} by {publisher}")
+                loot_name = loot_card.query_selector(
+                    "h3[data-a-target=LootCardSubtitle]"
+                ).text_content()
+                log.debug(
+                    f"Try to claim loot {loot_name} from {game_name} by {publisher}"
+                )
 
-                claim_button = loot_card.query_selector("button[data-test-selector=AvailableButton]")
+                claim_button = loot_card.query_selector(
+                    "button[data-test-selector=AvailableButton]"
+                )
                 if not claim_button:
-                    log.warning(f"Could not claim {loot_name} from {game_name} by {publisher} (in-game loot)")
+                    log.warning(
+                        f"Could not claim {loot_name} from {game_name} by {publisher} (in-game loot)"
+                    )
                     continue
 
                 claim_button.click()
@@ -163,18 +199,32 @@ class PrimeLooter:
                                 .strip()
                             )
                             instructions = (
-                                tab.query_selector("div[data-a-target=gms-claim-instructions]").inner_text().strip()
+                                tab.query_selector(
+                                    "div[data-a-target=gms-claim-instructions]"
+                                )
+                                .inner_text()
+                                .strip()
                             )
                             PrimeLooter.code_to_file(game_name, code, instructions)
                         except Exception:
-                            log.warning(f"Could not get code for {loot_name} ({game_name}) from {publisher}")
+                            log.warning(
+                                f"Could not get code for {loot_name} ({game_name}) from {publisher}"
+                            )
 
-                elif PrimeLooter.exists(tab, "div[data-test-selector=ProgressBarSection]"):
-                    log.warning(f"Could not claim {loot_name} from {game_name} by {publisher} (account not connected)")
+                elif PrimeLooter.exists(
+                    tab, "div[data-test-selector=ProgressBarSection]"
+                ):
+                    log.warning(
+                        f"Could not claim {loot_name} from {game_name} by {publisher} (account not connected)"
+                    )
                 else:
-                    log.warning(f"Could not claim {loot_name} from {game_name} by {publisher} (unknown error)")
+                    log.warning(
+                        f"Could not claim {loot_name} from {game_name} by {publisher} (unknown error)"
+                    )
                 if tab.query_selector("button[data-a-target=close-modal-button]"):
-                    tab.query_selector("button[data-a-target=close-modal-button]").click()
+                    tab.query_selector(
+                        "button[data-a-target=close-modal-button]"
+                    ).click()
         except Error as ex:
             print(ex)
             traceback.print_tb(ex.__traceback__)
@@ -229,10 +279,15 @@ class PrimeLooter:
         offers = self.get_offers()
 
         not_claimable_offers = [
-            offer for offer in offers if offer.get("linkedJourney") is None and offer.get("self") is None
+            offer
+            for offer in offers
+            if offer.get("linkedJourney") is None and offer.get("self") is None
         ]
         claimed_offers = [
-            offer for offer in offers if offer not in not_claimable_offers and PrimeLooter.check_claim_status(offer)
+            offer
+            for offer in offers
+            if offer not in not_claimable_offers
+            and PrimeLooter.check_claim_status(offer)
         ]
         external_offers = [
             offer
@@ -244,7 +299,8 @@ class PrimeLooter:
         direct_offers = [
             offer
             for offer in offers
-            if offer["deliveryMethod"] == "DIRECT_ENTITLEMENT" and PrimeLooter.check_eligibility(offer)
+            if offer["deliveryMethod"] == "DIRECT_ENTITLEMENT"
+            and PrimeLooter.check_eligibility(offer)
         ]
 
         # list non claimable offers
@@ -277,7 +333,11 @@ class PrimeLooter:
 
         # filter publishers
         if "all" not in self.publishers:
-            external_offers = [offer for offer in external_offers if offer["content"]["publisher"] in self.publishers]
+            external_offers = [
+                offer
+                for offer in external_offers
+                if offer["content"]["publisher"] in self.publishers
+            ]
 
         # claim external offers
         if external_offers:
@@ -289,7 +349,9 @@ class PrimeLooter:
             log.info(msg)
 
             for offer in external_offers:
-                self.claim_external(offer["content"]["externalURL"], offer["content"]["publisher"])
+                self.claim_external(
+                    offer["content"]["externalURL"], offer["content"]["publisher"]
+                )
         else:
             log.info("No external offers to claim\n")
 
@@ -302,14 +364,21 @@ def read_cookiefile(path: str) -> typing.List[Cookie]:
 
     for _c in jar:
         cookie = Cookie(
-            name=_c.name, value=_c.value, domain=_c.domain, path=_c.path, expires=_c.expires, secure=_c.secure
+            name=_c.name,
+            value=_c.value,
+            domain=_c.domain,
+            path=_c.path,
+            expires=_c.expires,
+            secure=_c.secure,
         )
         _cookies.append(cookie)
     return _cookies
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Notification bot for the lower saxony vaccination portal")
+    parser = argparse.ArgumentParser(
+        description="Notification bot for the lower saxony vaccination portal"
+    )
 
     parser.add_argument(
         "-p",
@@ -320,7 +389,12 @@ if __name__ == "__main__":
         default="publishers.txt",
     )
     parser.add_argument(
-        "-c", "--cookies", dest="cookies", help="Path to cookies.txt file", required=False, default="cookies.txt"
+        "-c",
+        "--cookies",
+        dest="cookies",
+        help="Path to cookies.txt file",
+        required=False,
+        default="cookies.txt",
     )
     parser.add_argument(
         "-l",
@@ -333,7 +407,12 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--dump", dest="dump", help="Dump html to output", required=False, action="store_true", default=False
+        "--dump",
+        dest="dump",
+        help="Dump html to output",
+        required=False,
+        action="store_true",
+        default=False,
     )
 
     parser.add_argument(
