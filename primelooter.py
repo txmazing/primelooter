@@ -448,7 +448,7 @@ if __name__ == "__main__":
     if arg["debug"]:
         log.level = logging.DEBUG
 
-    with PrimeLooter(cookies, publishers, headless) as looter:
+    with PrimeLooter(cookies, publishers, headless, use_chrome=False) as looter:
         while True:
             try:
                 log.info("Starting Prime Looter\n")
