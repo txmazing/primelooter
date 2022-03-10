@@ -1,5 +1,12 @@
 # Changelog
 
+### [1.3.1](https://www.github.com/srhinos/primelooter/compare/v1.3.0...v1.3.1) (2022-03-10)
+
+
+### Bug Fixes
+
+* Update Shield Links ([0b96ef0](https://www.github.com/srhinos/primelooter/commit/0b96ef0f0e9002d72a75626aba6bd993cadab2f3))
+
 ## [1.3.0](https://www.github.com/sibalzer/primelooter/compare/v1.2.2...v1.3.0) (2021-11-28)
 
 
