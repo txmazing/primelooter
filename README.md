@@ -1,8 +1,8 @@
 # Primelooter
 
-![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/sibalzer/primelooter?label=version)
+![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/srhinos/primelooter?label=version)
 [![Python](https://img.shields.io/badge/Made%20with-Python%203.9-blue.svg?style=flat-square&logo=Python&logoColor=white)](https://www.python.org/)
-[![GitHub license](https://img.shields.io/github/license/sibalzer/impfbot)](https://github.com/sibalzer/primelooter/blob/main/LICENSE)
+[![GitHub license](https://img.shields.io/github/license/srhinos/primelooter)](https://github.com/srhinos/primelooter/blob/main/LICENSE)
 
 Python bot which automatically claims ~~twitch~~ amazon prime gaming loot :D
 
