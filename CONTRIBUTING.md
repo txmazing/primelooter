@@ -19,7 +19,7 @@ Pull requests are always welcome but getting from idea to merged PR will take a 
 
 Installing the dev requirements should be all you need to get off your feet!
 
-`pip install -r requirements.txt`
+`pip install -r requirements-dev.txt`
 
 From there, ensuring CICD tests will pass (ie running flake8 and black) can be done with the following commands:
 - `black primelooter.py` (adding the `-check` flag will prevent the code from being formatted)
