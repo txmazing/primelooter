@@ -2,7 +2,7 @@ version: "3"
 services:
   primelooter:
     container_name: primelooter
-    image: ghcr.io/sibalzer/primelooter:latest
+    image: ghcr.io/srhinos/primelooter:latest
     restart: unless-stopped
     volumes:
       - ./cookies.txt:/app/cookies.txt # must exist before launching
