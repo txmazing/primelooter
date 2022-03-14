@@ -1,5 +1,13 @@
 # Changelog
 
+### [1.3.2](https://www.github.com/srhinos/primelooter/compare/v1.3.1...v1.3.2) (2022-03-14)
+
+
+### Bug Fixes
+
+* Attempt a fix for timeouts related to stupid crypto game ([6627e79](https://www.github.com/srhinos/primelooter/commit/6627e79d1ae7c736656dfbf2016a262bd3f142ab))
+* Correct Query Selectors in Direct Offer Claims ([85113df](https://www.github.com/srhinos/primelooter/commit/85113df57ee5e7a18e7ca03fdf0ab9166e0730ad))
+
 ### [1.3.1](https://www.github.com/srhinos/primelooter/compare/v1.3.0...v1.3.1) (2022-03-10)
 
 
