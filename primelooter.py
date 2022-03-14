@@ -239,31 +239,31 @@ class PrimeLooter:
         tab = self.context.new_page()
         try:
             tab.goto("https://gaming.amazon.com/home")
+            tab.wait_for_selector('button[data-type="Game"]').click()
 
-            fgwp_xpath = 'xpath=//button[@data-a-target="FGWPOffer"]/ancestor::div[@data-test-selector="Offer"]'
+            offer_selector = "div[data-test-selector='Offer']"
+            fgwp_selector = "button[data-a-target='FGWPOffer']"
 
-            elements = self.page.query_selector_all(fgwp_xpath)
+            direct_offers = []
 
-            if len(elements) == 0:
+            for offer in tab.query_selector_all(offer_selector):
+                if offer.query_selector(fgwp_selector):
+                    direct_offers.append(offer)
+
+            if len(direct_offers) > 0:
                 log.error(
                     "No direct offers found! Did they make some changes to the website? "
                     "Please report @github if this happens multiple times."
                 )
 
-            for elem in elements:
-                elem.scroll_into_view_if_needed()
-                self.page.wait_for_load_state("networkidle")
+            for direct_offer in direct_offers:
+                game_body = direct_offer.query_selector("offer__body")
 
-                game_name = elem.query_selector("h3").text_content()
-
-                try:
-                    publisher = elem.query_selector("p.tw-c-text-alt-2").text_content()
-                except AttributeError:
-                    log.error(f"Cannot claim {game_name}...")
-                    continue
+                game_name = game_body.query_selector("h3").text_content()
+                publisher = game_body.query_selector("p.tw-c-text-base").text_content()
 
                 log.debug(f"Try to claim {game_name} by {publisher}")
-                elem.query_selector("button[data-a-target=FGWPOffer]").click()
+                direct_offer.query_selector(fgwp_selector).dispatch_event("click")
                 log.info(f"Claimed {game_name} by {publisher}")
         except Error as ex:
             log.error(ex)
