@@ -181,9 +181,7 @@ class PrimeLooter:
                     continue
 
                 claim_button.click()
-                tab.wait_for_load_state("networkidle")
 
-                # validate
                 tab.wait_for_selector("div[data-a-target=gms-base-modal]")
 
                 if PrimeLooter.exists(tab, "div.gms-success-modal-container"):
