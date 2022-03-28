@@ -172,7 +172,7 @@ class PrimeLooter:
                 )
 
                 claim_button = loot_card.query_selector(
-                    "button[data-test-selector=AvailableButton]"
+                    "button[data-a-target=AvailableButton]"
                 )
                 if not claim_button:
                     log.warning(
