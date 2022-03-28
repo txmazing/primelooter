@@ -1,5 +1,13 @@
 # Changelog
 
+### [1.3.3](https://www.github.com/srhinos/primelooter/compare/v1.3.2...v1.3.3) (2022-03-28)
+
+
+### Bug Fixes
+
+* Correct CSS Selector Causing Claims to Fail ([f6968d4](https://www.github.com/srhinos/primelooter/commit/f6968d4c87bc010dac7f0b9d76cb7618ffe2c202))
+* Update Progress Bar CSS Selector ([0e07af8](https://www.github.com/srhinos/primelooter/commit/0e07af86cf90578889c05f5af881b9c886b0fc63))
+
 ### [1.3.2](https://www.github.com/srhinos/primelooter/compare/v1.3.1...v1.3.2) (2022-03-14)
 
 
