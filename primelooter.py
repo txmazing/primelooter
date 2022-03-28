@@ -209,9 +209,7 @@ class PrimeLooter:
                                 f"Could not get code for {loot_name} ({game_name}) from {publisher}"
                             )
 
-                elif PrimeLooter.exists(
-                    tab, "div[data-a-target=gms-progress-bar]"
-                ):
+                elif PrimeLooter.exists(tab, "div[data-a-target=gms-progress-bar]"):
                     log.warning(
                         f"Could not claim {loot_name} from {game_name} by {publisher} (account not connected)"
                     )
