@@ -1,5 +1,13 @@
 # Changelog
 
+### [1.3.4](https://www.github.com/srhinos/primelooter/compare/v1.3.3...v1.3.4) (2022-06-14)
+
+
+### Bug Fixes
+
+* Attempt Claim in Secondary Modal ([7b15adc](https://www.github.com/srhinos/primelooter/commit/7b15adc814fb6025847017a15fa5c136cfe7dcf9))
+* Reblack File With Better Line Length ([5ab962b](https://www.github.com/srhinos/primelooter/commit/5ab962bf8966bb1f85c1fdc0af4254eadedb9ce0))
+
 ### [1.3.3](https://www.github.com/srhinos/primelooter/compare/v1.3.2...v1.3.3) (2022-03-28)
 
 
