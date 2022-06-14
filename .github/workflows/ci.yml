@@ -25,4 +25,4 @@ jobs:
           pylint primelooter.py --fail-under 10 --disable=all --enable=classes --disable=W
       - name: Lint with black
         run: |
-          black primelooter.py --check
+          black primelooter.py --check --line-length=119
