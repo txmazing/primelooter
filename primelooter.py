@@ -184,6 +184,16 @@ class PrimeLooter:
 
                 tab.wait_for_selector("div[data-a-target=gms-base-modal]")
 
+                # Sometimes we get forced into having to click to claim within the base modal after claiming normally
+                # Mainly occurs for Apex Legends claims.
+                if PrimeLooter.exists(tab, 'div[class*="--current"][data-a-target="Step-3"]'):
+                    
+                    complete_claim_button = loot_card.query_selector(
+                        "button[data-a-target=gms-cta]"
+                    )
+                    if complete_claim_button:
+                        complete_claim_button.click()
+
                 if PrimeLooter.exists(tab, "div.gms-success-modal-container"):
                     log.info(f"Claimed {loot_name} ({game_name})")
 
@@ -209,7 +219,7 @@ class PrimeLooter:
                                 f"Could not get code for {loot_name} ({game_name}) from {publisher}"
                             )
 
-                elif PrimeLooter.exists(tab, "div[data-a-target=gms-progress-bar]"):
+                elif PrimeLooter.exists(tab, 'div[class*="--current"][data-a-target="Step-2"]'):
                     log.warning(
                         f"Could not claim {loot_name} from {game_name} by {publisher} (account not connected)"
                     )
