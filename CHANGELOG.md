@@ -1,5 +1,12 @@
 # Changelog
 
+### [1.3.5](https://www.github.com/srhinos/primelooter/compare/v1.3.4...v1.3.5) (2022-06-27)
+
+
+### Bug Fixes
+
+* Stupid Amazon Day ([839e492](https://www.github.com/srhinos/primelooter/commit/839e492c8e9c9cf56d1d4d97443f9227df729d44))
+
 ### [1.3.4](https://www.github.com/srhinos/primelooter/compare/v1.3.3...v1.3.4) (2022-06-14)
 
 
