@@ -128,6 +128,14 @@ class PrimeLooter:
         raise Exception(f"Could not check offer eligibility status\n{json.dumps(offer, indent=4)}")
 
     def claim_external(self, url, publisher):
+
+        if "loot" not in url:
+            log.warning(
+                f"Skipping URL {url}, looks to not be a game URL"
+                "Please report @github if this appears to be a mistake!"
+            )
+            return
+
         tab = self.context.new_page()
         try:
             with tab.expect_response(
