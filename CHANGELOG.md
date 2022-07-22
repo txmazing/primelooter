@@ -1,5 +1,12 @@
 # Changelog
 
+### [1.3.7](https://www.github.com/srhinos/primelooter/compare/v1.3.6...v1.3.7) (2022-07-22)
+
+
+### Bug Fixes
+
+* Only Loop When Commanded To ([5e8bb37](https://www.github.com/srhinos/primelooter/commit/5e8bb378e48702ce029e373cc23e744c549c285d))
+
 ### [1.3.6](https://www.github.com/srhinos/primelooter/compare/v1.3.5...v1.3.6) (2022-07-22)
 
 
