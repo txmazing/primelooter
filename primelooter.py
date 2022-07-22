@@ -425,16 +425,17 @@ if __name__ == "__main__":
                 traceback.print_tb(ex.__traceback__)
                 time.sleep(60)
             else:
-                handler.terminator = "\r"
+                if arg["loop"]:
+                    handler.terminator = "\r"
 
-                sleep_time = 60 * 60 * 24
-                for time_slept in range(sleep_time):
-                    m, s = divmod(sleep_time - time_slept, 60)
-                    h, m = divmod(m, 60)
-                    log.info(f"{h:d}:{m:02d}:{s:02d} till next run...")
-                    time.sleep(1)
+                    sleep_time = 60 * 60 * 24
+                    for time_slept in range(sleep_time):
+                        m, s = divmod(sleep_time - time_slept, 60)
+                        h, m = divmod(m, 60)
+                        log.info(f"{h:d}:{m:02d}:{s:02d} till next run...")
+                        time.sleep(1)
 
-                handler.terminator = "\n"
+                    handler.terminator = "\n"
 
             if not arg["loop"]:
                 break
