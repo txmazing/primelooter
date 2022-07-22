@@ -1,5 +1,12 @@
 # Changelog
 
+### [1.3.6](https://www.github.com/srhinos/primelooter/compare/v1.3.5...v1.3.6) (2022-07-22)
+
+
+### Bug Fixes
+
+* Update Direct Claim Code for New Layout ([2b0f2c5](https://www.github.com/srhinos/primelooter/commit/2b0f2c577163c5202a82ee9ca159bb1b0a1a15b6))
+
 ### [1.3.5](https://www.github.com/srhinos/primelooter/compare/v1.3.4...v1.3.5) (2022-06-27)
 
 
