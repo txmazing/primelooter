@@ -131,7 +131,7 @@ class PrimeLooter:
 
         if "loot" not in url:
             log.warning(
-                f"Skipping URL {url}, looks to not be a game URL"
+                f"Skipping URL {url}, looks to not be a game URL. "
                 "Please report @github if this appears to be a mistake!"
             )
             return
@@ -214,30 +214,35 @@ class PrimeLooter:
             tab.goto("https://gaming.amazon.com/home")
             tab.wait_for_selector('button[data-type="Game"]').click()
 
-            offer_selector = "div[data-test-selector='Offer']"
+            offer_selector = (
+                "div[data-a-target='offer-list-FGWP_FULL'] "
+                "> div[class='offer-list__content__grid'] "
+                "> div[class='tw-block']"
+            )
             fgwp_selector = "button[data-a-target='FGWPOffer']"
 
             direct_offers = []
+            offer_query = tab.query_selector_all(offer_selector)
 
-            for offer in tab.query_selector_all(offer_selector):
+            for offer in offer_query:
                 if offer.query_selector(fgwp_selector):
                     direct_offers.append(offer)
 
-            if len(direct_offers) > 0:
+            if len(direct_offers) == 0:
                 log.error(
                     "No direct offers found! Did they make some changes to the website? "
                     "Please report @github if this happens multiple times."
                 )
 
             for direct_offer in direct_offers:
-                game_body = direct_offer.query_selector("offer__body")
+                game_body = direct_offer.query_selector("div[class='item-card-details__body__primary']")
 
                 game_name = game_body.query_selector("h3").text_content()
-                publisher = game_body.query_selector("p.tw-c-text-base").text_content()
+                # publisher = game_body.query_selector("p.tw-c-text-base").text_content()
 
-                log.debug(f"Try to claim {game_name} by {publisher}")
+                log.debug(f"Try to claim {game_name}")
                 direct_offer.query_selector(fgwp_selector).dispatch_event("click")
-                log.info(f"Claimed {game_name} by {publisher}")
+                log.info(f"Claimed {game_name}")
         except Error as ex:
             log.error(ex)
             traceback.print_tb(ex.__traceback__)
@@ -297,7 +302,6 @@ class PrimeLooter:
             self.claim_direct()
         else:
             log.info("No direct offers to claim\n")
-
         # filter publishers
         if "all" not in self.publishers:
             external_offers = [offer for offer in external_offers if offer["content"]["publisher"] in self.publishers]
