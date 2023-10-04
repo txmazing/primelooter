@@ -1,26 +1,27 @@
+"""Script to claim Prime Gaming Loot automatically."""
 import argparse
-import http.cookiejar as cookiejar
+import json
 import logging
+import os
 import sys
 import time
 import traceback
-import json
 import typing
+from http import cookiejar
 
 from playwright.sync_api import (
-    sync_playwright,
     Browser,
     BrowserContext,
     Cookie,
     Error,
     Page,
+    sync_playwright,
 )
 
 handler = logging.StreamHandler(sys.stdout)
 
 logging.basicConfig(
     level=logging.INFO,
-    # format="%(asctime)s [%(levelname)s] %(msg)s",
     format="{asctime} [{levelname}] {message}",
     style="{",
     datefmt="%Y-%m-%d %H:%M:%S",
@@ -31,23 +32,45 @@ log = logging.getLogger()
 
 
 class AuthException(Exception):
-    pass
+    """Exception raised for errors in the authentication process."""
+
+
+class ClaimException(Exception):
+    """Exception raised for errors in the claiming process."""
 
 
 class PrimeLooter:
-    def __init__(self, cookies, publishers="all", headless=True, use_chrome=True):
+    """Class for looting Prime Gaming Loot"""
+
+    def __init__(
+        self, cookies, publishers="all", headless=True, debug=False, use_chrome=True
+    ):
         self.cookies = cookies
         self.publishers = publishers
         self.headless = headless
+        self.debug = debug
         self.use_chrome = use_chrome
+        self.playwright = None
+        self.browser = None
+        self.context = None
+        self.page = None
 
     def __enter__(self):
+        """Start the browser and create a new page."""
+
         self.playwright = sync_playwright()
 
         if self.use_chrome:
-            self.browser: Browser = self.playwright.start().chromium.launch(headless=self.headless)
+            self.browser: Browser = self.playwright.start().chromium.launch(
+                headless=self.headless
+            )
         else:
-            self.browser: Browser = self.playwright.start().firefox.launch(headless=self.headless)
+            self.browser: Browser = self.playwright.start().firefox.launch(
+                headless=self.headless
+            )
+
+        if self.debug and not os.path.exists("./dumps"):
+            os.makedirs("./dumps")
 
         self.context: BrowserContext = self.browser.new_context()
         self.context.add_cookies(self.cookies)
@@ -61,18 +84,31 @@ class PrimeLooter:
         self.playwright.__exit__()
 
     @staticmethod
-    def code_to_file(game: str, code: str, instructions: str, seperator_string: str = "") -> None:
-        seperator_string = seperator_string or "========================\n========================"
-        with open("./game_codes.txt", "a") as f:
-            f.write(f"{game}: {code}\n\n{instructions.replace('/n',' ')}\n{seperator_string}\n")
+    def code_to_file(
+        game: str, code: str, instructions: str, seperator_string: str = ""
+    ) -> None:
+        """Write the code and instructions to a file."""
+
+        seperator_string = (
+            seperator_string or "========================\n========================"
+        )
+        with open("./game_codes.txt", "a", encoding="utf-8") as code_file:
+            code_file.write(
+                f"{game}: {code}\n\n{instructions.replace('/n',' ')}\n{seperator_string}\n"
+            )
+        log.info("Code for %s written to file!", game)
 
     @staticmethod
     def exists(tab: Page, selector: str) -> bool:
+        """Check if an element exists on the page."""
+
         if tab.query_selector(selector):
             return True
         return False
 
     def auth(self) -> None:
+        """Authenticate the user."""
+
         with self.page.expect_response(
             lambda response: "https://gaming.amazon.com/graphql" in response.url
             and "currentUser" in response.json()["data"]
@@ -81,247 +117,344 @@ class PrimeLooter:
             self.page.goto("https://gaming.amazon.com/home")
             response = response_info.value.json()["data"]["currentUser"]
             if not response["isSignedIn"]:
-                raise AuthException("Authentication: Not signed in. (Please recreate the cookie.txt file)")
-            elif not response["isAmazonPrime"]:
+                raise AuthException(
+                    "Authentication: Not signed in. (Please recreate the cookie.txt file)"
+                )
+
+            if not response["isAmazonPrime"]:
                 raise AuthException(
                     "Authentication: Not a valid Amazon Prime account. "
                     "(Loot can only be redeemed with an Amazon Prime Membership)"
                 )
-            elif not response["isTwitchPrime"]:
+
+            if not response["isTwitchPrime"]:
                 raise AuthException(
                     "Authentication: Not a valid Twitch Prime account. "
                     "(Loot can only be redeemed with an Amazon Prime "
                     "subscription and a connected Twitch Prime account)"
                 )
 
-    def get_offers(self) -> typing.List:
+    def get_games_offers(self) -> typing.List:
+        """Get all games offers."""
+
         with self.page.expect_response(
             lambda response: "https://gaming.amazon.com/graphql" in response.url
-            and "primeOffers" in response.json()["data"]
+            and "games" in response.json()["data"]
         ) as response_info:
-            log.debug("get offers")
+            log.debug("get games offers")
             self.page.goto("https://gaming.amazon.com/home")
-            return response_info.value.json()["data"]["primeOffers"]
+            return response_info.value.json()["data"]["games"]["items"]
+
+    def get_ingameloot_offers(self) -> typing.List:
+        """Get all ingameloot offers."""
+
+        with self.page.expect_response(
+            lambda response: "https://gaming.amazon.com/graphql" in response.url
+            and "inGameLoot" in response.json()["data"]
+        ) as response_info:
+            log.debug("get inGameLoot offers")
+            self.page.goto("https://gaming.amazon.com/home")
+            return response_info.value.json()["data"]["inGameLoot"]["items"]
 
     @staticmethod
-    def check_eligibility(offer: dict) -> bool:
-        if offer["linkedJourney"]:
-            for suboffer in offer["linkedJourney"]["offers"]:
-                if suboffer["self"]["eligibility"]:
-                    if suboffer["self"]["eligibility"]["canClaim"]:
-                        return True
-            return False
-        if offer["self"]:
-            return offer["self"]["eligibility"]["canClaim"]
-        raise Exception(f"Could not check offer eligibility status\n{json.dumps(offer, indent=4)}")
+    def check_is_claimed(offer: dict) -> bool:
+        """Check if an offer has been claimed already."""
 
-    @staticmethod
-    def check_claim_status(offer: dict) -> bool:
-        if offer["linkedJourney"]:
-            for suboffer in offer["linkedJourney"]["offers"]:
-                if suboffer["self"]["eligibility"]:
-                    if suboffer["self"]["eligibility"]["isClaimed"]:
-                        return True
-            return False
-        if offer["self"]:
-            return offer["self"]["eligibility"]["isClaimed"]
-        raise Exception(f"Could not check offer eligibility status\n{json.dumps(offer, indent=4)}")
+        if offer["offers"]:
+            for suboffer in offer["offers"]:
+                if suboffer["offerSelfConnection"]["eligibility"]:
+                    return suboffer["offerSelfConnection"]["eligibility"]["isClaimed"]
 
-    def claim_external(self, url, publisher):
+        raise ClaimException(
+            f"Could not check_is_claimed status!\n{json.dumps(offer, indent=4)}"
+        )
 
-        if "loot" not in url:
-            log.warning(
-                f"Skipping URL {url}, looks to not be a game URL. "
-                "Please report @github if this appears to be a mistake!"
-            )
-            return
+    def claim(self, url) -> str:
+        """Claim an offer."""
 
         tab = self.context.new_page()
         try:
             with tab.expect_response(
                 lambda response: "https://gaming.amazon.com/graphql" in response.url
-                and "journey" in response.json()["data"]
+                and "item" in response.json()["data"]
             ) as response_info:
-                log.debug("get game title")
+                log.debug("get offer title info")
                 tab.goto(url)
-                game_name = response_info.value.json()["data"]["journey"]["assets"]["title"]
 
-            log.debug(f"Try to claim {game_name} from {publisher}")
-            tab.wait_for_selector("div[data-a-target=loot-card-available]")
+                item = response_info.value.json()["data"]["item"]
 
-            loot_cards = tab.query_selector_all("div[data-a-target=loot-card-available]")
+            is_fgwp = item["isFGWP"]
+            game_name = item["game"]["assets"]["title"]
+            publisher = item["game"]["assets"]["publisher"]
+            grants_code = item["grantsCode"]
 
-            for loot_card in loot_cards:
-                loot_name = loot_card.query_selector("h3[data-a-target=LootCardSubtitle]").text_content()
-                log.debug(f"Try to claim loot {loot_name} from {game_name} by {publisher}")
+            if publisher and "all" not in self.publishers:
+                log.debug(
+                    "Publisher is not in the list of publishers! (%s from %s)",
+                    game_name,
+                    publisher,
+                )
+                return
 
-                claim_button = loot_card.query_selector("button[data-a-target=AvailableButton]")
-                if not claim_button:
-                    log.warning(f"Could not claim {loot_name} from {game_name} by {publisher} (in-game loot)")
-                    continue
+            claimable_offers = [
+                offer
+                for offer in item["offers"]
+                if offer["offerSelfConnection"]["eligibility"]["canClaim"]
+            ]
+            not_claimable_offers = [
+                offer
+                for offer in item["offers"]
+                if not offer["offerSelfConnection"]["eligibility"]["canClaim"]
+            ]
 
-                claim_button.click()
+            if not_claimable_offers:
+                for not_claimable_offer in not_claimable_offers:
+                    offer_state = not_claimable_offer["offerSelfConnection"][
+                        "eligibility"
+                    ]["offerState"]
+                    missing_required_account_link = not_claimable_offer[
+                        "offerSelfConnection"
+                    ]["eligibility"]["missingRequiredAccountLink"]
+                    if offer_state == "EXPIRED":
+                        log.debug(
+                            "Could not claim offer! (expired) (%s from %s)",
+                            game_name,
+                            publisher,
+                        )
+                    elif missing_required_account_link:
+                        log.debug(
+                            "Could not claim offer! (missing required account link) (%s from %s)",
+                            game_name,
+                            publisher,
+                        )
+                    else:
+                        log.debug(
+                            "Could not claim offer! (unknown reason) (%s from %s)",
+                            game_name,
+                            publisher,
+                        )
 
-                tab.wait_for_selector("div[data-a-target=gms-base-modal]")
+            if not claimable_offers:
+                log.debug(
+                    "Could not claim offers! (no claimable offers) (%s from %s)",
+                    game_name,
+                    publisher,
+                )
+                return
 
-                # Sometimes we get forced into having to click to claim within the base modal after claiming normally
-                # Mainly occurs for Apex Legends claims.
-                if PrimeLooter.exists(tab, 'div[class*="--current"][data-a-target="Step-3"]'):
-                    complete_claim_button = loot_card.query_selector("button[data-a-target=gms-cta]")
-                    if complete_claim_button:
-                        complete_claim_button.click()
+            if len(claimable_offers) > 1:
+                log.debug(
+                    "Could not claim offers! (multiple claimable offers) (%s from %s)",
+                    game_name,
+                    publisher,
+                )
+                return
 
-                if PrimeLooter.exists(tab, "div.gms-success-modal-container"):
-                    log.info(f"Claimed {loot_name} ({game_name})")
+            if is_fgwp:
+                log.debug("It's a FGWP offer")
+            else:
+                log.debug("It's a ingameloot offer")
+                loot_name = item["assets"]["title"]
+                game_name = f"{loot_name} for {game_name}"
 
-                    if PrimeLooter.exists(tab, "div.get-my-stuff-modal-code-success"):
-                        try:
-                            code = (
-                                tab.query_selector(
-                                    'div.get-my-stuff-modal-code div[data-a-target="copy-code-input"] input'
-                                )
-                                .get_attribute("value")
-                                .strip()
-                            )
-                            instructions = (
-                                tab.query_selector("div[data-a-target=gms-claim-instructions]").inner_text().strip()
-                            )
-                            PrimeLooter.code_to_file(game_name, code, instructions)
-                        except Exception:
-                            log.warning(f"Could not get code for {loot_name} ({game_name}) from {publisher}")
+            log.debug("Try to claim offer %s from %s", game_name, publisher)
 
-                elif PrimeLooter.exists(tab, 'div[class*="--current"][data-a-target="Step-2"]') or PrimeLooter.exists(
-                    tab, "div[data-a-target=gms-progress-bar]"
-                ):
-                    log.warning(f"Could not claim {loot_name} from {game_name} by {publisher} (account not connected)")
-                else:
-                    log.warning(f"Could not claim {loot_name} from {game_name} by {publisher} (unknown error)")
-                if tab.query_selector("button[data-a-target=close-modal-button]"):
-                    tab.query_selector("button[data-a-target=close-modal-button]").click()
-        except Error as ex:
-            print(ex)
-            traceback.print_tb(ex.__traceback__)
-            log.error(
-                f"An error occured ({publisher}/{game_name})! Did they make some changes to the website? "
-                "Please report @github if this happens multiple times."
+            claim_button = tab.query_selector(
+                "button[data-a-target='buy-box_call-to-action']"
             )
-        finally:
-            tab.close()
+            if not claim_button:
+                log.debug("Claim button not found! (%s from %s)", game_name, publisher)
+                return
 
-    def claim_direct(self):
-        tab = self.context.new_page()
-        try:
-            tab.goto("https://gaming.amazon.com/home")
-            tab.wait_for_selector('button[data-type="Game"]').click()
+            claim_button.click()
+            log.debug("Clicked claim button %s from %s", game_name, publisher)
 
-            offer_selector = (
-                "div[data-a-target='offer-list-FGWP_FULL'] "
-                "> div[class='offer-list__content__grid'] "
-                "> div[class='tw-block']"
-            )
-            fgwp_selector = "button[data-a-target='FGWPOffer']"
-
-            direct_offers = []
-            offer_query = tab.query_selector_all(offer_selector)
-
-            for offer in offer_query:
-                if offer.query_selector(fgwp_selector):
-                    direct_offers.append(offer)
-
-            if len(direct_offers) == 0:
-                log.error(
-                    "No direct offers found! Did they make some changes to the website? "
-                    "Please report @github if this happens multiple times."
+            if PrimeLooter.exists(tab, "div[data-a-target='LinkAccountModal']"):
+                tab.click("button[data-a-target='AlreadyLinkedAccountButton']")
+                log.debug(
+                    "Clicked already linked account button %s from %s!",
+                    game_name,
+                    publisher,
                 )
 
-            for direct_offer in direct_offers:
-                game_body = direct_offer.query_selector("div[class='item-card-details__body__primary']")
+            tab.wait_for_load_state("networkidle")
+            if grants_code:
+                log.debug("Offer %s from %s grants a code!", game_name, publisher)
 
-                game_name = game_body.query_selector("h3").text_content()
-                # publisher = game_body.query_selector("p.tw-c-text-base").text_content()
+                tab.wait_for_selector('div[data-a-target="copy-code-input"]')
 
-                log.debug(f"Try to claim {game_name}")
-                direct_offer.query_selector(fgwp_selector).dispatch_event("click")
-                log.info(f"Claimed {game_name}")
-        except Error as ex:
-            log.error(ex)
-            traceback.print_tb(ex.__traceback__)
+                code = (
+                    tab.query_selector("div[data-a-target='copy-code-input'] input")
+                    .get_attribute("value")
+                    .strip()
+                )
+                log.debug("Code for %s (%s): %s", game_name, publisher, code)
+
+                instructions = (
+                    tab.query_selector("p[data-a-target='BodyText']")
+                    .inner_text()
+                    .strip()
+                )
+                PrimeLooter.code_to_file(game_name, code, instructions)
+
+            if not PrimeLooter.exists(tab, 'div[class^="thank-you-title "]'):
+                if self.debug:
+                    with open(
+                        f"./dumps/{game_name}.html", "w", encoding="utf-8"
+                    ) as game_file:
+                        game_file.write(
+                            tab.query_selector(
+                                'html[data-react-helmet="lang,dir"]'
+                            ).inner_html()
+                        )
+
+                log.debug(
+                    "Could not claim offer! %s (no success message) (%s from %s)",
+                    tab.url,
+                    game_name,
+                    publisher,
+                )
+                return
+
+            log.debug("Successfully claimed %s from %s!", game_name, publisher)
+            return f"{game_name}"
+
+        except Error as cex:
+            log.error(str(cex))
+            traceback.print_tb(cex.__traceback__)
+            log.error(
+                "An error occured (%s/%s)! Did they make some changes to the website? "
+                "Please report @github if this happens multiple times.",
+                game_name,
+                publisher,
+            )
+
         finally:
             tab.close()
 
     def run(self, dump: bool = False):
+        """Run the script."""
+
         self.auth()
 
         if dump:
-            print(self.page.query_selector("div.home").inner_html())
-        offers = self.get_offers()
+            self.page.wait_for_load_state("networkidle")
+            with open("./dumps/home.html", "w", encoding="utf-8") as home_file:
+                home_file.write(self.page.query_selector("div.home").inner_html())
 
-        not_claimable_offers = [
-            offer for offer in offers if offer.get("linkedJourney") is None and offer.get("self") is None
-        ]
-        claimed_offers = [
-            offer for offer in offers if offer not in not_claimable_offers and PrimeLooter.check_claim_status(offer)
-        ]
-        external_offers = [
+        all_ingameloot_offers = self.get_ingameloot_offers()
+        all_games_offers = self.get_games_offers()
+
+        claimed_ingameloot_offers = [
             offer
-            for offer in offers
-            if offer["deliveryMethod"] == "EXTERNAL_OFFER"
-            and offer not in not_claimable_offers
-            and PrimeLooter.check_eligibility(offer)
+            for offer in all_ingameloot_offers
+            if PrimeLooter.check_is_claimed(offer)
         ]
-        direct_offers = [
+
+        ingameloot_offers = [
             offer
-            for offer in offers
-            if offer["deliveryMethod"] == "DIRECT_ENTITLEMENT" and PrimeLooter.check_eligibility(offer)
+            for offer in all_ingameloot_offers
+            if offer not in claimed_ingameloot_offers
+            and offer["assets"]["externalClaimLink"]
         ]
 
-        # list non claimable offers
-        msg = "Can not claim these ingame offers:"
-        for offer in not_claimable_offers:
-            msg += f"\n    - {offer['title']}"
-        msg = msg[:-1]
-        msg += "\n"
-        log.info(msg)
+        not_claimable_ingameloot_offers = [
+            offer
+            for offer in all_ingameloot_offers
+            if offer not in claimed_ingameloot_offers and offer not in ingameloot_offers
+        ]
 
-        # list claimed offers
-        msg = "The following offers have been claimed already:"
-        for offer in claimed_offers:
-            msg += f"\n    - {offer['title']}"
-        msg = msg[:-1]
-        msg += "\n"
-        log.info(msg)
+        claimed_games_offers = [
+            offer for offer in all_games_offers if PrimeLooter.check_is_claimed(offer)
+        ]
 
-        # claim direct offers
-        if direct_offers:
-            msg = "Claiming these direct offers:"
-            for offer in direct_offers:
-                msg += f"\n    - {offer['title']}"
+        games_offers = [
+            offer
+            for offer in all_games_offers
+            if offer not in claimed_games_offers
+            and offer["assets"]["externalClaimLink"]
+        ]
+
+        not_claimable_games_offers = [
+            offer
+            for offer in all_games_offers
+            if offer not in claimed_games_offers and offer not in games_offers
+        ]
+
+        # list non claimable games offers
+        if not_claimable_games_offers:
+            msg = "Can not claim these games offers:"
+            for offer in not_claimable_games_offers:
+                msg += f"\n    - {offer['assets']['title']}"
             msg = msg[:-1]
             msg += "\n"
             log.info(msg)
-            self.claim_direct()
         else:
-            log.info("No direct offers to claim\n")
-        # filter publishers
-        if "all" not in self.publishers:
-            external_offers = [offer for offer in external_offers if offer["content"]["publisher"] in self.publishers]
+            log.info("No non claimable games offers!\n")
 
-        # claim external offers
-        if external_offers:
-            msg = "Claiming these external offers:"
-            for offer in external_offers:
-                msg += f"\n    - {offer['title']}"
+        # list non claimable ingameloot offers
+        if not_claimable_ingameloot_offers:
+            msg = "Can not claim these ingameloot offers:"
+            for offer in not_claimable_ingameloot_offers:
+                msg += f"\n    - {offer['assets']['title']}"
+            msg = msg[:-1]
+            msg += "\n"
+            log.info(msg)
+        else:
+            log.info("No non claimable ingameloot offers!\n")
+
+        # list already claimed games offers
+        if claimed_games_offers:
+            msg = "The following games offers have been claimed already:"
+            for offer in claimed_games_offers:
+                msg += f"\n    - {offer['assets']['title']}"
+            msg = msg[:-1]
+            msg += "\n"
+            log.info(msg)
+        else:
+            log.info("No claimed games offers\n")
+
+        # list already claimed ingameloot offers
+        if claimed_ingameloot_offers:
+            msg = "The following ingameloot offers have been claimed already:"
+            for offer in claimed_ingameloot_offers:
+                msg += f"\n    - {offer['assets']['title']}"
+            msg = msg[:-1]
+            msg += "\n"
+            log.info(msg)
+        else:
+            log.info("No claimed ingameloot offers\n")
+
+        # claim games offers
+        if games_offers:
+            msg = "Claiming these games offers:"
+            for offer in games_offers:
+                msg += f"\n    - {offer['assets']['title']}"
             msg = msg[:-1]
             msg += "\n"
             log.info(msg)
 
-            for offer in external_offers:
-                self.claim_external(offer["content"]["externalURL"], offer["content"]["publisher"])
+            for offer in games_offers:
+                self.claim(offer["assets"]["externalClaimLink"])
         else:
-            log.info("No external offers to claim\n")
+            log.info("No games offers to claim\n")
+
+        # claim ingameloot offers
+        if ingameloot_offers:
+            msg = "Claiming these ingameloot offers:"
+            for offer in ingameloot_offers:
+                msg += f"\n    - {offer['assets']['title']}"
+            msg = msg[:-1]
+            msg += "\n"
+            log.info(msg)
+
+            for offer in ingameloot_offers:
+                self.claim(offer["assets"]["externalClaimLink"])
 
 
 def read_cookiefile(path: str) -> typing.List[Cookie]:
+    """Read the cookies from the cookiefile."""
+
     jar = cookiejar.MozillaCookieJar(path)
     jar.load()
 
@@ -341,7 +474,9 @@ def read_cookiefile(path: str) -> typing.List[Cookie]:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Notification bot for the lower saxony vaccination portal")
+    parser = argparse.ArgumentParser(
+        description="Notification bot for the lower saxony vaccination portal"
+    )
 
     parser.add_argument(
         "-p",
@@ -400,27 +535,34 @@ if __name__ == "__main__":
 
     arg = vars(parser.parse_args())
 
-    cookies = read_cookiefile(arg["cookies"])
+    cookies_arg = read_cookiefile(arg["cookies"])
 
-    with open(arg["publishers"]) as f:
-        publishers = f.readlines()
-    publishers = [x.strip() for x in publishers]
-    headless = arg["headless"]
-    dump = arg["dump"]
+    with open(arg["publishers"], encoding="utf-8") as f:
+        publishers_temp = f.readlines()
+    publishers_arg = [x.strip() for x in publishers_temp]
+    headless_arg = arg["headless"]
+    dump_arg = arg["dump"]
+    debug_arg = arg["debug"]
 
-    if arg["debug"]:
+    if debug_arg:
         log.level = logging.DEBUG
 
-    with PrimeLooter(cookies, publishers, headless, use_chrome=False) as looter:
+    with PrimeLooter(
+        cookies_arg,
+        publishers_arg,
+        headless_arg,
+        debug_arg,
+        use_chrome=False,
+    ) as looter:
         while True:
             try:
                 log.info("Starting Prime Looter\n")
-                looter.run(dump)
+                looter.run(dump_arg)
                 log.info("Finished Looting!\n")
             except AuthException as ex:
                 log.error(ex)
                 sys.exit(1)
-            except Exception as ex:
+            except (ClaimException, Exception) as ex:
                 log.error(ex)
                 traceback.print_tb(ex.__traceback__)
                 time.sleep(60)
@@ -428,11 +570,11 @@ if __name__ == "__main__":
                 if arg["loop"]:
                     handler.terminator = "\r"
 
-                    sleep_time = 60 * 60 * 24
-                    for time_slept in range(sleep_time):
-                        m, s = divmod(sleep_time - time_slept, 60)
+                    SLEEP_TIME = 60 * 60 * 24
+                    for time_slept in range(SLEEP_TIME):
+                        m, s = divmod(SLEEP_TIME - time_slept, 60)
                         h, m = divmod(m, 60)
-                        log.info(f"{h:d}:{m:02d}:{s:02d} till next run...")
+                        log.info("%d:%02d:%02d till next run...", h, m, s)
                         time.sleep(1)
 
                     handler.terminator = "\n"
