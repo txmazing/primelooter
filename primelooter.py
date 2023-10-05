@@ -9,14 +9,7 @@ import traceback
 import typing
 from http import cookiejar
 
-from playwright.sync_api import (
-    Browser,
-    BrowserContext,
-    Cookie,
-    Error,
-    Page,
-    sync_playwright,
-)
+from playwright.sync_api import Browser, BrowserContext, Cookie, Error, Page, sync_playwright
 
 handler = logging.StreamHandler(sys.stdout)
 
@@ -43,12 +36,19 @@ class PrimeLooter:
     """Class for looting Prime Gaming Loot"""
 
     def __init__(
-        self, cookies, publishers="all", headless=True, debug=False, use_chrome=True
+        self,
+        cookies,
+        publishers="all",
+        headless=True,
+        debug=False,
+        mode="all",
+        use_chrome=True,
     ):
         self.cookies = cookies
         self.publishers = publishers
         self.headless = headless
         self.debug = debug
+        self.mode = mode
         self.use_chrome = use_chrome
         self.playwright = None
         self.browser = None
@@ -61,13 +61,9 @@ class PrimeLooter:
         self.playwright = sync_playwright()
 
         if self.use_chrome:
-            self.browser: Browser = self.playwright.start().chromium.launch(
-                headless=self.headless
-            )
+            self.browser: Browser = self.playwright.start().chromium.launch(headless=self.headless)
         else:
-            self.browser: Browser = self.playwright.start().firefox.launch(
-                headless=self.headless
-            )
+            self.browser: Browser = self.playwright.start().firefox.launch(headless=self.headless)
 
         if self.debug and not os.path.exists("./dumps"):
             os.makedirs("./dumps")
@@ -84,18 +80,12 @@ class PrimeLooter:
         self.playwright.__exit__()
 
     @staticmethod
-    def code_to_file(
-        game: str, code: str, instructions: str, seperator_string: str = ""
-    ) -> None:
+    def code_to_file(game: str, code: str, instructions: str, seperator_string: str = "") -> None:
         """Write the code and instructions to a file."""
 
-        seperator_string = (
-            seperator_string or "========================\n========================"
-        )
+        seperator_string = seperator_string or "========================\n========================"
         with open("./game_codes.txt", "a", encoding="utf-8") as code_file:
-            code_file.write(
-                f"{game}: {code}\n\n{instructions.replace('/n',' ')}\n{seperator_string}\n"
-            )
+            code_file.write(f"{game}: {code}\n\n{instructions.replace('/n',' ')}\n{seperator_string}\n")
         log.info("Code for %s written to file!", game)
 
     @staticmethod
@@ -117,9 +107,7 @@ class PrimeLooter:
             self.page.goto("https://gaming.amazon.com/home")
             response = response_info.value.json()["data"]["currentUser"]
             if not response["isSignedIn"]:
-                raise AuthException(
-                    "Authentication: Not signed in. (Please recreate the cookie.txt file)"
-                )
+                raise AuthException("Authentication: Not signed in. (Please recreate the cookie.txt file)")
 
             if not response["isAmazonPrime"]:
                 raise AuthException(
@@ -138,8 +126,7 @@ class PrimeLooter:
         """Get all games offers."""
 
         with self.page.expect_response(
-            lambda response: "https://gaming.amazon.com/graphql" in response.url
-            and "games" in response.json()["data"]
+            lambda response: "https://gaming.amazon.com/graphql" in response.url and "games" in response.json()["data"]
         ) as response_info:
             log.debug("get games offers")
             self.page.goto("https://gaming.amazon.com/home")
@@ -165,9 +152,7 @@ class PrimeLooter:
                 if suboffer["offerSelfConnection"]["eligibility"]:
                     return suboffer["offerSelfConnection"]["eligibility"]["isClaimed"]
 
-        raise ClaimException(
-            f"Could not check_is_claimed status!\n{json.dumps(offer, indent=4)}"
-        )
+        raise ClaimException(f"Could not check_is_claimed status!\n{json.dumps(offer, indent=4)}")
 
     def claim(self, url) -> str:
         """Claim an offer."""
@@ -197,24 +182,18 @@ class PrimeLooter:
                 return
 
             claimable_offers = [
-                offer
-                for offer in item["offers"]
-                if offer["offerSelfConnection"]["eligibility"]["canClaim"]
+                offer for offer in item["offers"] if offer["offerSelfConnection"]["eligibility"]["canClaim"]
             ]
             not_claimable_offers = [
-                offer
-                for offer in item["offers"]
-                if not offer["offerSelfConnection"]["eligibility"]["canClaim"]
+                offer for offer in item["offers"] if not offer["offerSelfConnection"]["eligibility"]["canClaim"]
             ]
 
             if not_claimable_offers:
                 for not_claimable_offer in not_claimable_offers:
-                    offer_state = not_claimable_offer["offerSelfConnection"][
-                        "eligibility"
-                    ]["offerState"]
-                    missing_required_account_link = not_claimable_offer[
-                        "offerSelfConnection"
-                    ]["eligibility"]["missingRequiredAccountLink"]
+                    offer_state = not_claimable_offer["offerSelfConnection"]["eligibility"]["offerState"]
+                    missing_required_account_link = not_claimable_offer["offerSelfConnection"]["eligibility"][
+                        "missingRequiredAccountLink"
+                    ]
                     if offer_state == "EXPIRED":
                         log.debug(
                             "Could not claim offer! (expired) (%s from %s)",
@@ -259,9 +238,7 @@ class PrimeLooter:
 
             log.debug("Try to claim offer %s from %s", game_name, publisher)
 
-            claim_button = tab.query_selector(
-                "button[data-a-target='buy-box_call-to-action']"
-            )
+            claim_button = tab.query_selector("button[data-a-target='buy-box_call-to-action']")
             if not claim_button:
                 log.debug("Claim button not found! (%s from %s)", game_name, publisher)
                 return
@@ -283,30 +260,16 @@ class PrimeLooter:
 
                 tab.wait_for_selector('div[data-a-target="copy-code-input"]')
 
-                code = (
-                    tab.query_selector("div[data-a-target='copy-code-input'] input")
-                    .get_attribute("value")
-                    .strip()
-                )
+                code = tab.query_selector("div[data-a-target='copy-code-input'] input").get_attribute("value").strip()
                 log.debug("Code for %s (%s): %s", game_name, publisher, code)
 
-                instructions = (
-                    tab.query_selector("p[data-a-target='BodyText']")
-                    .inner_text()
-                    .strip()
-                )
+                instructions = tab.query_selector("p[data-a-target='BodyText']").inner_text().strip()
                 PrimeLooter.code_to_file(game_name, code, instructions)
 
             if not PrimeLooter.exists(tab, 'div[class^="thank-you-title "]'):
                 if self.debug:
-                    with open(
-                        f"./dumps/{game_name}.html", "w", encoding="utf-8"
-                    ) as game_file:
-                        game_file.write(
-                            tab.query_selector(
-                                'html[data-react-helmet="lang,dir"]'
-                            ).inner_html()
-                        )
+                    with open(f"./dumps/{game_name}.html", "w", encoding="utf-8") as game_file:
+                        game_file.write(tab.query_selector('html[data-react-helmet="lang,dir"]').inner_html())
 
                 log.debug(
                     "Could not claim offer! %s (no success message) (%s from %s)",
@@ -342,114 +305,109 @@ class PrimeLooter:
             with open("./dumps/home.html", "w", encoding="utf-8") as home_file:
                 home_file.write(self.page.query_selector("div.home").inner_html())
 
-        all_ingameloot_offers = self.get_ingameloot_offers()
-        all_games_offers = self.get_games_offers()
+        if self.mode == "all" or self.mode == "ingameloot":
+            all_ingameloot_offers = self.get_ingameloot_offers()
 
-        claimed_ingameloot_offers = [
-            offer
-            for offer in all_ingameloot_offers
-            if PrimeLooter.check_is_claimed(offer)
-        ]
+            claimed_ingameloot_offers = [
+                offer for offer in all_ingameloot_offers if PrimeLooter.check_is_claimed(offer)
+            ]
 
-        ingameloot_offers = [
-            offer
-            for offer in all_ingameloot_offers
-            if offer not in claimed_ingameloot_offers
-            and offer["assets"]["externalClaimLink"]
-        ]
+            ingameloot_offers = [
+                offer
+                for offer in all_ingameloot_offers
+                if offer not in claimed_ingameloot_offers and offer["assets"]["externalClaimLink"]
+            ]
 
-        not_claimable_ingameloot_offers = [
-            offer
-            for offer in all_ingameloot_offers
-            if offer not in claimed_ingameloot_offers and offer not in ingameloot_offers
-        ]
+            not_claimable_ingameloot_offers = [
+                offer
+                for offer in all_ingameloot_offers
+                if offer not in claimed_ingameloot_offers and offer not in ingameloot_offers
+            ]
 
-        claimed_games_offers = [
-            offer for offer in all_games_offers if PrimeLooter.check_is_claimed(offer)
-        ]
+            # list non claimable ingameloot offers
+            if not_claimable_ingameloot_offers:
+                msg = "Can not claim these ingameloot offers:"
+                for offer in not_claimable_ingameloot_offers:
+                    msg += f"\n    - {offer['assets']['title']}"
+                msg = msg[:-1]
+                msg += "\n"
+                log.info(msg)
+            else:
+                log.info("No non claimable ingameloot offers!\n")
 
-        games_offers = [
-            offer
-            for offer in all_games_offers
-            if offer not in claimed_games_offers
-            and offer["assets"]["externalClaimLink"]
-        ]
+            # list already claimed ingameloot offers
+            if claimed_ingameloot_offers:
+                msg = "The following ingameloot offers have been claimed already:"
+                for offer in claimed_ingameloot_offers:
+                    msg += f"\n    - {offer['assets']['title']}"
+                msg = msg[:-1]
+                msg += "\n"
+                log.info(msg)
+            else:
+                log.info("No claimed ingameloot offers\n")
 
-        not_claimable_games_offers = [
-            offer
-            for offer in all_games_offers
-            if offer not in claimed_games_offers and offer not in games_offers
-        ]
+            # claim ingameloot offers
+            if ingameloot_offers:
+                msg = "Claiming these ingameloot offers:"
+                for offer in ingameloot_offers:
+                    msg += f"\n    - {offer['assets']['title']}"
+                msg = msg[:-1]
+                msg += "\n"
+                log.info(msg)
 
-        # list non claimable games offers
-        if not_claimable_games_offers:
-            msg = "Can not claim these games offers:"
-            for offer in not_claimable_games_offers:
-                msg += f"\n    - {offer['assets']['title']}"
-            msg = msg[:-1]
-            msg += "\n"
-            log.info(msg)
-        else:
-            log.info("No non claimable games offers!\n")
+                for offer in ingameloot_offers:
+                    self.claim(offer["assets"]["externalClaimLink"])
 
-        # list non claimable ingameloot offers
-        if not_claimable_ingameloot_offers:
-            msg = "Can not claim these ingameloot offers:"
-            for offer in not_claimable_ingameloot_offers:
-                msg += f"\n    - {offer['assets']['title']}"
-            msg = msg[:-1]
-            msg += "\n"
-            log.info(msg)
-        else:
-            log.info("No non claimable ingameloot offers!\n")
+        if self.mode == "all" or self.mode == "games":
+            all_games_offers = self.get_games_offers()
 
-        # list already claimed games offers
-        if claimed_games_offers:
-            msg = "The following games offers have been claimed already:"
-            for offer in claimed_games_offers:
-                msg += f"\n    - {offer['assets']['title']}"
-            msg = msg[:-1]
-            msg += "\n"
-            log.info(msg)
-        else:
-            log.info("No claimed games offers\n")
+            claimed_games_offers = [offer for offer in all_games_offers if PrimeLooter.check_is_claimed(offer)]
 
-        # list already claimed ingameloot offers
-        if claimed_ingameloot_offers:
-            msg = "The following ingameloot offers have been claimed already:"
-            for offer in claimed_ingameloot_offers:
-                msg += f"\n    - {offer['assets']['title']}"
-            msg = msg[:-1]
-            msg += "\n"
-            log.info(msg)
-        else:
-            log.info("No claimed ingameloot offers\n")
+            games_offers = [
+                offer
+                for offer in all_games_offers
+                if offer not in claimed_games_offers and offer["assets"]["externalClaimLink"]
+            ]
 
-        # claim games offers
-        if games_offers:
-            msg = "Claiming these games offers:"
-            for offer in games_offers:
-                msg += f"\n    - {offer['assets']['title']}"
-            msg = msg[:-1]
-            msg += "\n"
-            log.info(msg)
+            not_claimable_games_offers = [
+                offer for offer in all_games_offers if offer not in claimed_games_offers and offer not in games_offers
+            ]
 
-            for offer in games_offers:
-                self.claim(offer["assets"]["externalClaimLink"])
-        else:
-            log.info("No games offers to claim\n")
+            # list non claimable games offers
+            if not_claimable_games_offers:
+                msg = "Can not claim these games offers:"
+                for offer in not_claimable_games_offers:
+                    msg += f"\n    - {offer['assets']['title']}"
+                msg = msg[:-1]
+                msg += "\n"
+                log.info(msg)
+            else:
+                log.info("No non claimable games offers!\n")
 
-        # claim ingameloot offers
-        if ingameloot_offers:
-            msg = "Claiming these ingameloot offers:"
-            for offer in ingameloot_offers:
-                msg += f"\n    - {offer['assets']['title']}"
-            msg = msg[:-1]
-            msg += "\n"
-            log.info(msg)
+            # list already claimed games offers
+            if claimed_games_offers:
+                msg = "The following games offers have been claimed already:"
+                for offer in claimed_games_offers:
+                    msg += f"\n    - {offer['assets']['title']}"
+                msg = msg[:-1]
+                msg += "\n"
+                log.info(msg)
+            else:
+                log.info("No claimed games offers\n")
 
-            for offer in ingameloot_offers:
-                self.claim(offer["assets"]["externalClaimLink"])
+            # claim games offers
+            if games_offers:
+                msg = "Claiming these games offers:"
+                for offer in games_offers:
+                    msg += f"\n    - {offer['assets']['title']}"
+                msg = msg[:-1]
+                msg += "\n"
+                log.info(msg)
+
+                for offer in games_offers:
+                    self.claim(offer["assets"]["externalClaimLink"])
+            else:
+                log.info("No games offers to claim\n")
 
 
 def read_cookiefile(path: str) -> typing.List[Cookie]:
@@ -474,15 +432,13 @@ def read_cookiefile(path: str) -> typing.List[Cookie]:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Notification bot for the lower saxony vaccination portal"
-    )
+    parser = argparse.ArgumentParser(description="Notification bot for the lower saxony vaccination portal")
 
     parser.add_argument(
         "-p",
         "--publishers",
         dest="publishers",
-        help="Path to publishers.txt file",
+        help="Path to publishers.txt file. (default: publishers.txt, required=False)",
         required=False,
         default="publishers.txt",
     )
@@ -490,7 +446,7 @@ if __name__ == "__main__":
         "-c",
         "--cookies",
         dest="cookies",
-        help="Path to cookies.txt file",
+        help="Path to cookies.txt file. (default: cookies.txt, required=False)",
         required=False,
         default="cookies.txt",
     )
@@ -498,7 +454,8 @@ if __name__ == "__main__":
         "-l",
         "--loop",
         dest="loop",
-        help="Shall the script loop itself? (Cooldown 24h)",
+        help="Shall the script loop itself? (Cooldown 24h)"
+        " (default: False, options: [True, False], required=False)",
         required=False,
         action="store_true",
         default=False,
@@ -507,7 +464,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dump",
         dest="dump",
-        help="Dump html to output",
+        help="Dump html to output folder for debugging purposes. "
+        "(default: False, options: [True, False], required=False)",
         required=False,
         action="store_true",
         default=False,
@@ -517,7 +475,7 @@ if __name__ == "__main__":
         "-d",
         "--debug",
         dest="debug",
-        help="Print Log at debug level",
+        help="Print Log at debug level. (default: False, options: [True, False], required=False)",
         required=False,
         action="store_true",
         default=False,
@@ -527,10 +485,19 @@ if __name__ == "__main__":
         "-nh",
         "--no-headless",
         dest="headless",
-        help="Shall the script not use headless mode?",
+        help="Shall the script not use headless mode? (default: True, options: [True, False], required=False)",
         required=False,
         action="store_false",
         default=True,
+    )
+
+    parser.add_argument(
+        "-m",
+        "--mode",
+        dest="mode",
+        help="Select the mode of the script. (default: all, options: [all, games, ingameloot], required=False)",
+        required=False,
+        default="all",
     )
 
     arg = vars(parser.parse_args())
@@ -543,6 +510,7 @@ if __name__ == "__main__":
     headless_arg = arg["headless"]
     dump_arg = arg["dump"]
     debug_arg = arg["debug"]
+    mode_arg = arg["mode"]
 
     if debug_arg:
         log.level = logging.DEBUG
@@ -552,6 +520,7 @@ if __name__ == "__main__":
         publishers_arg,
         headless_arg,
         debug_arg,
+        mode_arg,
         use_chrome=False,
     ) as looter:
         while True:

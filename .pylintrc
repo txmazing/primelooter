@@ -1,0 +1,9 @@
+[MASTER]
+disable=all
+enable = classes
+
+[FORMAT]
+max-line-length=119
+
+[DESIGN]
+max-module-lines=119
